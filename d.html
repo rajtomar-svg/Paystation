@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sony 3D Experience - PlayStation 5</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #three-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .header {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00d4ff, #ff0080);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .product-title {
+            color: white;
+            font-size: 1.8rem;
+            text-align: center;
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+            display: flex;
+            gap: 20px;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-weight: bold;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #00d4ff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .info-panel {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            max-width: 300px;
+            pointer-events: auto;
+        }
+
+        .info-title {
+            color: #00d4ff;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+
+        .info-text {
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .features {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .features li {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 8px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .features li::before {
+            content: "✦";
+            position: absolute;
+            left: 0;
+            color: #ff0080;
+        }
+
+        @media (max-width: 768px) {
+            .info-panel {
+                right: 20px;
+                left: 20px;
+                max-width: none;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="three-canvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="header">
+                <div class="logo">SONY</div>
+                <div class="product-title">PlayStation 5</div>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn" id="rotateBtn">Auto Rotate</button>
+                <button class="control-btn" id="resetBtn">Reset View</button>
+                <button class="control-btn" id="lightsBtn">Toggle Lights</button>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-title">PS5 Digital Edition</div>
+                <div class="info-text">Next-gen gaming console with lightning-fast load times and stunning 4K graphics.</div>
+                <ul class="features">
+                    <li>Ray Tracing Technology</li>
+                    <li>120 FPS Gaming</li>
+                    <li>825GB SSD Storage</li>
+                    <li>3D Audio Support</li>
+                    <li>Tempest Engine</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Three.js 3D Scene Setup
+        class Sony3DScene {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ 
+                    canvas: document.getElementById('three-canvas'),
+                    antialias: true,
+                    alpha: true
+                });
+                
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.autoRotate = true;
+                this.lightsEnabled = true;
+                
+                this.init();
+                this.createPS5();
+                this.createLights();
+                this.createParticles();
+                this.setupEventListeners();
+                this.animate();
+            }
+
+            init() {
+                this.camera.position.set(0, 0, 5);
+                
+                // Add fog for atmosphere
+                this.scene.fog = new THREE.FogExp2(0x0c0c0c, 0.02);
+            }
+
+            createPS5() {
+                this.ps5Group = new THREE.Group();
+
+                // Main PS5 body (white curved console)
+                const bodyGeometry = new THREE.BoxGeometry(3.2, 1.8, 0.6);
+                const bodyMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0xf5f5f5,
+                    metalness: 0.1,
+                    roughness: 0.3,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1
+                });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.position.y = 0.1;
+                body.castShadow = true;
+                body.receiveShadow = true;
+                this.ps5Group.add(body);
+
+                // Curved side panels
+                const sideGeometry = new THREE.CylinderGeometry(0.8, 0.9, 1.8, 8);
+                const sideMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0x1a1a1a,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                
+                const leftSide = new THREE.Mesh(sideGeometry, sideMaterial);
+                leftSide.position.set(-1.7, 0.1, 0);
+                leftSide.rotation.z = Math.PI / 2;
+                leftSide.castShadow = true;
+                this.ps5Group.add(leftSide);
+
+                const rightSide = new THREE.Mesh(sideGeometry, sideMaterial);
+                rightSide.position.set(1.7, 0.1, 0);
+                rightSide.rotation.z = -Math.PI / 2;
+                rightSide.castShadow = true;
+                this.ps5Group.add(rightSide);
+
+                // Blu-ray drive
+                const driveGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+                const driveMaterial = new THREE.MeshPhysicalMaterial({ color: 0x333333, metalness: 0.9 });
+                const drive = new THREE.Mesh(driveGeometry, driveMaterial);
+                drive.position.set(0.8, 0.1, 0.31);
+                drive.rotation.x = Math.PI / 2;
+                this.ps5Group.add(drive);
+
+                // Sony logo
+                const loader = new THREE.FontLoader();
+                loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+                    const textGeometry = new THREE.TextGeometry('SONY', {
+                        font: font,
+                        size: 0.15,
+                        height: 0.02
+                    });
+                    const textMaterial = new THREE.MeshPhysicalMaterial({ 
+                        color: 0x000000,
+                        metalness: 0.9,
+                        roughness: 0.1
+                    });
+                    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                    textMesh.position.set(-0.6, 0.6, 0.31);
+                    this.ps5Group.add(textMesh);
+                });
+
+                // Glow effect
+                const glowGeometry = new THREE.SphereGeometry(2.5, 32, 32);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00d4ff,
+                    transparent: true,
+                    opacity: 0.1
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                glow.position.y = -0.5;
+                this.ps5Group.add(glow);
+
+                this.scene.add(this.ps5Group);
+            }
+
+            createLights() {
+                // Ambient light
+                this.ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                this.scene.add(this.ambientLight);
+
+                // Main key light
+                this.keyLight = new THREE.DirectionalLight(0xffffff, 1);
+                this.keyLight.position.set(5, 5, 5);
+                this.keyLight.castShadow = true;
+                this.keyLight.shadow.mapSize.width = 2048;
+                this.keyLight.shadow.mapSize.height = 2048;
+                this.scene.add(this.keyLight);
+
+                // Fill light
+                this.fillLight = new THREE.DirectionalLight(0x00d4ff, 0.5);
+                this.fillLight.position.set(-5, 3, 2);
+                this.scene.add(this.fillLight);
+
+                // Rim light
+                this.rimLight = new THREE.DirectionalLight(0xff0080, 0.8);
+                this.rimLight.position.set(0, 0, -5);
+                this.scene.add(this.rimLight);
+            }
+
+            createParticles() {
+                const particlesGeometry = new THREE.BufferGeometry();
+                const particlesCount = 1000;
+                const posArray = new Float32Array(particlesCount * 3);
+
+                for(let i = 0; i < particlesCount * 3; i++) {
+                    posArray[i] = (Math.random() - 0.5) * 20;
+                }
+
+                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+                const particlesMaterial = new THREE.PointsMaterial({
+                    size: 0.005,
+                    color: 0x00d4ff,
+                    transparent: true,
+                    opacity: 0.6,
+                    blending: THREE.AdditiveBlending
+                });
+
+                this.particles = new THREE.Points(particlesGeometry, particlesMaterial);
+                this.scene.add(this.particles);
+            }
+
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.onWindowResize());
+                window.addEventListener('mousemove', (event) => this.onMouseMove(event));
+
+                // Control buttons
+                document.getElementById('rotateBtn').addEventListener('click', () => {
+                    this.autoRotate = !this.autoRotate;
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.camera.position.set(0, 0, 5);
+                });
+
+                document.getElementById('lightsBtn').addEventListener('click', () => {
+                    this.lightsEnabled = !this.lightsEnabled;
+                    this.ambientLight.visible = this.lightsEnabled;
+                    this.keyLight.visible = this.lightsEnabled;
+                    this.fillLight.visible = this.lightsEnabled;
+                    this.rimLight.visible = this.lightsEnabled;
+                });
+            }
+
+            onMouseMove(event) {
+                this.mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+                this.mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                // Auto rotation
+                if (this.autoRotate) {
+                    this.ps5Group.rotation.y += 0.005;
+                } else {
+                    // Mouse controlled rotation
+                    this.ps5Group.rotation.y += this.mouseX * 0.01;
+                    this.ps5Group.rotation.x += this.mouseY * 0.01;
+                }
+
+                // Animate particles
+                this.particles.rotation.y += 0.0005;
+
+                // Camera orbit
+                const time = Date.now() * 0.0005;
+                this.camera.position.x = Math.sin(time * 0.3) * 5;
+                this.camera.position.z = Math.cos(time * 0.3) * 5;
+                this.camera.lookAt(0, 0, 0);
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize the 3D scene when page loads
+        window.addEventListener('load', () => {
+            new Sony3DScene();
+        });
+    </script>
+</body>
+</html>
