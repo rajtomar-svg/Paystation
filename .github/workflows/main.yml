@@ -1,0 +1,36 @@
+name: Deploy Paystation Website
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Ubuntu EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # Go to web directory
+            cd /var/www
+            # Clone repo if not exists
+            if [ ! -d "Playstation" ]; then
+              git clone https://github.com/rajtomar-svg/Playstation.git
+            fi
+            # Go inside project
+            cd Playstation
+            # Pull latest code
+            git pull origin main
+            # Set permissions
+            sudo chmod -R 755 /var/www/Joy
+            # Restart nginx
+            sudo systemctl restart nginx
+            echo "Deployment Successful 🚀"
